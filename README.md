@@ -1,5 +1,4 @@
 
-
 ```markdown
 # 🔐 Password Safety AI
 
@@ -141,11 +140,5 @@ Frontend will run on **[http://localhost:3000](http://localhost:3000)**
 ## 📜 License
 
 MIT License – feel free to use and modify for educational purposes.
-
-```
-
----
-
-✅ This version will render correctly on GitHub, and everything is clean + consistent.  
 
 ```
