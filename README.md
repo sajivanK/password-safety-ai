@@ -1,7 +1,4 @@
 
----
-
-Here’s the **fixed and polished version** of your README.md:
 
 ```markdown
 # 🔐 Password Safety AI
