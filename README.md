@@ -1,4 +1,7 @@
-```markdown
+
+## ✨ Improved & Polished README.md
+
+
 # 🔐 Password Safety AI
 
 A multi-agent AI-powered password safety system built with **FastAPI** (backend) and **Next.js + TailwindCSS** (frontend).  
@@ -45,15 +48,14 @@ This project is designed as a **university project** but follows **industrial st
 - zxcvbn (password strength estimator)  
 
 **Other Tools:**  
-- CORS Middleware (secure frontend-backend communication)  
+- CORS Middleware (secure frontend–backend communication)  
 - Git & GitHub (version control)  
 
 ---
 
 ## 📂 Project Structure
 
-```
-
+```plaintext
 password-safety-ai/
 │
 ├── backend/                  # FastAPI backend
@@ -69,9 +71,8 @@ password-safety-ai/
 │   │   └── api.js
 │   └── package.json
 │
-├── .gitignore                # Ignored files (node\_modules, venv, etc.)
+├── .gitignore                # Ignored files (node_modules, venv, etc.)
 ├── README.md                 # Project documentation
-
 ````
 
 ---
@@ -79,10 +80,11 @@ password-safety-ai/
 ## ⚡ Getting Started
 
 ### 1️⃣ Clone the Repository
+
 ```bash
-git clone https://github.com/YOUR-USERNAME/password-safety-ai.git
+git clone https://github.com/sajivanK/password-safety-ai.git
 cd password-safety-ai
-````
+```
 
 ### 2️⃣ Setup Backend (FastAPI)
 
@@ -140,5 +142,4 @@ Frontend will run on **[http://localhost:3000](http://localhost:3000)**
 
 MIT License – feel free to use and modify for educational purposes.
 
-```
-```
+
