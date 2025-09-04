@@ -1,7 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from zxcvbn import zxcvbn
+from agents import guardian, watchdog,generator
+
+
+# Import agents
+from agents import guardian  # we’ll add watchdog later
 
 app = FastAPI()
 
@@ -14,19 +17,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Request body schema
-class PasswordInput(BaseModel):
-    password: str
-
 @app.get("/")
 def root():
     return {"message": "Password Safety Backend is running 🚀"}
 
-@app.post("/analyze-password")
-def analyze_password(data: PasswordInput):
-    result = zxcvbn(data.password)
-    return {
-        "password": data.password,
-        "score": result["score"],  # 0 (weak) → 4 (strong)
-        "feedback": result["feedback"],  # suggestions & warnings
-    }
+# Register Guardian agent routes
+app.include_router(guardian.router, prefix="/guardian")
+app.include_router(watchdog.router, prefix="/watchdog")
+app.include_router(watchdog.router, prefix="/report")
+app.include_router(generator.router, prefix="/generator")
