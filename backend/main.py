@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from agents import guardian, watchdog,generator
+from agents import guardian, watchdog, generator, advisor #
 
 
 # Import agents
 from agents import guardian  # we’ll add watchdog later
+from agents import advisor  # added for use advisor.py
 
 app = FastAPI()
 
