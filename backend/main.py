@@ -27,3 +27,6 @@ app.include_router(guardian.router, prefix="/guardian")
 app.include_router(watchdog.router, prefix="/watchdog")
 app.include_router(watchdog.router, prefix="/report")
 app.include_router(generator.router, prefix="/generator")
+
+# register advisor agent routes
+app.include_router(advisor.router, prefix="/advisor")
