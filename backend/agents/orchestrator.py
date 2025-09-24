@@ -6,9 +6,9 @@ from typing import Optional, Literal, Dict, Any
 
 router = APIRouter()
 
-# ======================
+
 # Request / Response DTO
-# ======================
+
 
 Plan = Literal["normal", "premium", "enterprise"]
 
@@ -26,9 +26,8 @@ class ChatOut(BaseModel):
     ui: Dict[str, Any] = {}
     warnings: list[str] = []
 
-# ======================
+
 # Simple NLU
-# ======================
 
 INTENT_ANALYZE = "analyze"
 INTENT_GENERATE = "generate"
@@ -61,9 +60,9 @@ def extract_password(msg: str) -> Optional[str]:
             return tok
     return None
 
-# ======================
+
 # HTTP helpers to agents
-# ======================
+
 
 # If your backend runs on a different host/port, edit this:
 BACKEND_BASE = "http://localhost:8000"
@@ -98,9 +97,7 @@ async def call_generator(mode: str = "deterministic",
             raise HTTPException(resp.status_code, f"Generator error: {resp.text}")
         return resp.json()
 
-# ======================
 # Compose final message
-# ======================
 
 def compose_reply(password: Optional[str],
                   guardian: Optional[Dict[str,Any]],
@@ -150,9 +147,7 @@ def compose_reply(password: Optional[str],
     chat = " ".join(parts) if parts else "I analyzed your request."
     return ChatOut(chat=chat, ui=ui, warnings=warnings)
 
-# ======================
 # Orchestrator endpoint
-# ======================
 
 @router.post("/chat", response_model=ChatOut)
 async def orchestrator_chat(body: ChatIn) -> ChatOut:
