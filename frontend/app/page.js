@@ -8,11 +8,28 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  
+
+  ////////////////////////////////////////////////////////
+  // New state for Advisor 
+  const [tips, setTips] = useState(null);
+  const [tipsLoading, setTipsLoading] = useState(false);
+  const [tipsError, setTipsError] = useState("");
+  ////////////////////////////////////////////////////////
 
   async function analyzePassword() {
     if (!password) return;
     setLoading(true);
     setResult(null);
+    
+
+//////////////////////////////////////////////////////////
+     setTips(null);        // hide old tips box
+     setTipsError("");     // clear any old tips error
+///////////////////////////////////////////////////////////
+
+
+    
     try {
       const res = await fetch(`${API_URL}/report/analyze-password`, {
         method: "POST",
@@ -28,6 +45,35 @@ export default function Home() {
       setLoading(false);
     }
   }
+
+
+//////////////////////////////////////////////////////////////
+  // New: get Advisor tips (uses your /advisor/tips endpoint)
+  async function getAdvisorTips() {
+    if (!password) return;
+    setTipsLoading(true);
+    setTipsError("");
+    setTips(null);
+    try {
+      const res = await fetch(`${API_URL}/advisor/tips`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTips(data.tips || []);
+      } else {
+        setTipsError(data.detail || "Something went wrong");
+      }
+    } catch (e) {
+      setTipsError("Failed to connect to backend ❌");
+    } finally {
+      setTipsLoading(false);
+    }
+  }
+////////////////////////////////////////////////////////////////
+  
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-start bg-gradient-to-br from-blue-900 via-purple-900 to-gray-900 text-white px-6 py-12 rounded-3xl">
@@ -58,10 +104,31 @@ export default function Home() {
           >
             {loading ? "Analyzing..." : "Analyze"}
           </button>
+
+
+ {/*  New: Advisor Tips button */}
+          <button
+            onClick={getAdvisorTips}
+            disabled={tipsLoading || !password}
+            className="bg-yellow-500 hover:bg-yellow-600 text-black px-6 py-3 rounded-lg font-semibold disabled:opacity-60"
+          >
+            {tipsLoading ? "Getting tips..." : "Get Tips"}
+          </button>
+
+
+            
         </div>
+
+{/* Error from analyze */}
         {result?.error && (
           <p className="mt-3 text-red-400 font-medium">{result.error}</p>
         )}
+
+{/* Error from tips */}
+        {tipsError && (
+          <p className="mt-3 text-red-400 font-medium">{tipsError}</p>
+        )}
+
       </div>
 
       {/* Results Section */}
@@ -106,6 +173,28 @@ export default function Home() {
           </div>
         </div>
       )}
+
+
+{/* New: Advisor Tips Card (always visible after clicking "Get Tips") */}
+      {tips && (
+        <div className="w-full max-w-5xl mt-8">
+          <div className="p-6 bg-gray-800/70 rounded-2xl shadow-lg">
+            <h2 className="text-xl font-bold mb-3 text-yellow-300">Advisor Tips 💡</h2>
+            {tips.length === 0 ? (
+              <p>No tips found.</p>
+            ) : (
+              <ul className="list-disc pl-5 space-y-1">
+                {tips.map((t, i) => (
+                  <li key={i}>{t}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+        
+
+        
     </div>
   );
 }

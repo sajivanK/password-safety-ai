@@ -142,4 +142,13 @@ Frontend will run on **[http://localhost:3000](http://localhost:3000)**
 
 MIT License – feel free to use and modify for educational purposes.
 
+## 🔹 New Feature – Advisor Agent (by Mathu)
+
+- **Backend**: Added `advisor.py` agent with `/advisor/tips` endpoint  
+  → Gives improvement suggestions for weak passwords.  
+- **Frontend**: Integrated **Advisor Tips** into dashboard (`/`)  
+  → User clicks "Get Tips 💡" to see advice instantly.  
+- **Responsible AI**: Helps users improve password safety with simple, transparent feedback.  
+
+
 
