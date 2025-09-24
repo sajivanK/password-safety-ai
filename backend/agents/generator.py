@@ -7,7 +7,7 @@ import google.generativeai as genai
 from wordfreq import top_n_list
 
 # Configure Gemini (API key must be set in environment)
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 router = APIRouter()
 

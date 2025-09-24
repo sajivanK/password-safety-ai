@@ -8,11 +8,13 @@ import {
   BarChart3,
   Settings,
   KeyRound,
+  MessageSquare, // NEW icon
 } from "lucide-react";
 
 function SidebarLink({ href, label, Icon }) {
   const pathname = usePathname();
-  const isActive = pathname === href;
+  // highlight on exact match or any subpath (e.g., /chat or /chat/foo)
+  const isActive = pathname === href || pathname.startsWith(href + "/");
 
   return (
     <Link
@@ -39,6 +41,8 @@ export default function Sidebar() {
         <SidebarLink href="/" label="Dashboard" Icon={LayoutDashboard} />
         <SidebarLink href="/breach" label="Breach Check" Icon={ShieldAlert} />
         <SidebarLink href="/generator" label="Password Generator" Icon={KeyRound} />
+        {/* NEW: Chat Orchestrator */}
+        <SidebarLink href="/chat" label="Chat Orchestrator" Icon={MessageSquare} />
         <SidebarLink href="/reports" label="Reports" Icon={BarChart3} />
         <SidebarLink href="/settings" label="Settings" Icon={Settings} />
       </nav>
