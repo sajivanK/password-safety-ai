@@ -16,19 +16,7 @@ export default function ChatOrchestratorPage() {
   }
 
   // --- Health checks on mount ---
-  useEffect(() => {
-    Promise.allSettled([
-      fetch(`${API_BASE}/guardian/health`),
-      fetch(`${API_BASE}/watchdog/health`),
-      fetch(`${API_BASE}/generator/health`),
-    ]).then(([g, w, gen]) =>
-      setStatus({
-        guardian: g.status === "fulfilled" && g.value.ok,
-        watchdog: w.status === "fulfilled" && w.value.ok,
-        generator: gen.status === "fulfilled" && gen.value.ok,
-      })
-    )
-  }, [])
+
 
   const sendMessage = async () => {
     if (!input.trim()) return

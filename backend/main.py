@@ -40,6 +40,7 @@ def root():
 
 app.include_router(guardian.router,     prefix="/guardian")
 app.include_router(watchdog.router,     prefix="/watchdog")  
+app.include_router(watchdog.router, prefix="/report",  tags=["Report (alias, deprecated)"])
 app.include_router(generator.router,    prefix="/generator")
 app.include_router(orchestrator.router, prefix="/orchestrator")
 app.include_router(advisor.router,      prefix="/advisor")
