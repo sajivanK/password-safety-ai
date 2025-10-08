@@ -58,3 +58,9 @@ uvicorn==0.35.0
 xxhash==3.5.0
 zstandard==0.24.0
 zxcvbn==4.5.0
+
+pymongo[srv]
+pydantic[email]
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart

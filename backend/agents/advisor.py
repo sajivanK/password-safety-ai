@@ -1,50 +1,67 @@
 # backend/agents/advisor.py
-from fastapi import APIRouter
+"""
+🤝 Advisor Controller
+This combines Pattern Agent, Behavior Agent, and Coach Agent.
+Each can work alone or together safely.
+"""
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from agents.new_advisor import pattern_agent, behavior_agent, coach_agent
 
 router = APIRouter()
 
+# ---------- Data Models ----------
 class PasswordInput(BaseModel):
     password: str
 
-def make_tips(pwd: str) -> list[str]:
-    tips = []
+# In-memory temporary store for user patterns (simulate behavior tracking)
+# ⚠️ Not persistent; only for demonstration, never stores real passwords.
+USER_FEATURE_HISTORY = {}
 
-    # Length checks
-    if len(pwd) < 8:
-        tips.append("Password is too short. Use at least 8–12 characters.")
-    elif len(pwd) < 12:
-        tips.append("Good start. Make it 12+ characters for more safety.")
+# ---------- Endpoints ----------
 
-    # Character variety checks
-    if pwd.lower() == pwd:
-        tips.append("Add UPPERCASE letters.")
-    if pwd.upper() == pwd:
-        tips.append("Add lowercase letters.")
-    if not any(c.isdigit() for c in pwd):
-        tips.append("Add numbers (0–9).")
-    if not any(c in "!@#$%^&*()-_=+[]{};:,.<>?/" for c in pwd):
-        tips.append("Add symbols (e.g., !@#$).")
+@router.post("/pattern")
+def analyze_pattern(data: PasswordInput):
+    """Step 1: Extract safe password features."""
+    return pattern_agent.extract_features(data.password)
 
-    # Simple pattern checks
-    if pwd.isalpha():
-        tips.append("Avoid letters only. Mix numbers & symbols.")
-    if pwd.isdigit():
-        tips.append("Avoid numbers only. Add letters & symbols.")
-    if "password" in pwd.lower():
-        tips.append("Avoid common words like 'password'.")
-    if any(seq in pwd for seq in ["1234", "0000", "1111", "abcd"]):
-        tips.append("Avoid simple sequences like 1234 or abcd.")
+@router.post("/behavior")
+def analyze_behavior(username: str):
+    """
+    Step 2: Analyze habits based on previously stored feature history.
+    Normally, you'd use a user_id from the database.
+    """
+    user_features = USER_FEATURE_HISTORY.get(username, [])
+    habits = behavior_agent.detect_habits(user_features)
+    return {"username": username, "habits": habits}
 
-    # If no tips, it's already good
-    if not tips:
-        tips.append("Great! Your password looks strong ✅")
+@router.post("/coach")
+def generate_tips(data: PasswordInput, username: str = "guest"):
+    """
+    Step 3: Full pipeline — Pattern + Behavior + Coach.
+    Extract features → detect habits → generate Gemini tips.
+    """
+    # Step 1: extract features (safe)
+    features = pattern_agent.extract_features(data.password)
 
-    return tips
+    # Store for this user
+    if username not in USER_FEATURE_HISTORY:
+        USER_FEATURE_HISTORY[username] = []
+    USER_FEATURE_HISTORY[username].append(features)
 
-@router.post("/tips")
-def give_tips(data: PasswordInput):
+    # Step 2: detect habits
+    habits = behavior_agent.detect_habits(USER_FEATURE_HISTORY[username])
+
+    # Step 3: coach advice (use internal Gemini logic directly)
+    tips = coach_agent.gemini_tips(features, habits)
+    note = "We never store or share your password — only safe patterns are analyzed."
+
+    output = {"tips": tips, "note": note}
+
+
     return {
-        "password": data.password,
-        "tips": make_tips(data.password)
+        "features": features,
+        "habits": habits,
+        "coach": output,
     }
