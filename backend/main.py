@@ -2,11 +2,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from agents import guardian, watchdog,generator,advisor,orchestrator
 
+from auth_routes import router as auth_router
+
 
 # --- NEW: load .env and configure Gemini ---
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
+
+from database import db
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -44,4 +49,6 @@ app.include_router(watchdog.router, prefix="/report",  tags=["Report (alias, dep
 app.include_router(generator.router,    prefix="/generator")
 app.include_router(orchestrator.router, prefix="/orchestrator")
 app.include_router(advisor.router,      prefix="/advisor")
+
+app.include_router(auth_router)
 

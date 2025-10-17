@@ -89,7 +89,8 @@ async def call_generator(mode: str = "deterministic",
     if symbols is not None:
         payload["symbols"] = symbols
     if mode == "multilingual":
-        payload["language"] = language or "en"
+        language = language or "en"
+        payload["language"] = language
 
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.post(f"{BACKEND_BASE}/generator/create-password", json=payload)
@@ -197,7 +198,17 @@ async def orchestrator_chat(body: ChatIn) -> ChatOut:
                     language=body.language
                 )
             except Exception:
-                degraded.append("generator")
+                # 🆕 Fallback: if premium/LLM path fails, try deterministic so users still get suggestions
+                try:
+                    generator_res = await call_generator(
+                        mode="deterministic",
+                        length=gen_length,
+                        symbols=gen_symbols,
+                        language=None
+                    )
+                    # 🆕 Important: do NOT mark generator as degraded if fallback succeeded
+                except Exception:
+                    degraded.append("generator")
 
     # Run in parallel where possible
     await asyncio.gather(maybe_guardian(), maybe_watchdog(), maybe_generator())

@@ -1,5 +1,7 @@
 "use client"
 import { useState, useEffect } from "react"
+// ✅ if you already use RequireAuth on this page, keep it; otherwise you can remove this import.
+// import RequireAuth from "@/components/RequireAuth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000"
 
@@ -8,18 +10,39 @@ export default function ChatOrchestratorPage() {
   const [input, setInput] = useState("")
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
-  //const [status, setStatus] = useState({ guardian: null, watchdog: null, generator: null })
+
+  // 🛡️ CHANGED: track the *actual* saved user plan from localStorage (cannot be overridden by dropdown)
+  const [userPlan, setUserPlan] = useState("normal") // the real plan we will send to backend
 
   // --- Copy helper ---
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text)
   }
 
-  // --- Health checks on mount ---
+  // --- Auto-apply user plan from localStorage on mount ---
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("psai_status")
+      if (stored === "premium") {
+        setPlan("premium")
+        setUserPlan("premium") // 🛡️ CHANGED
+      } else {
+        setPlan("normal")
+        setUserPlan("normal") // 🛡️ CHANGED
+      }
+    } catch {
+      setPlan("normal")
+      setUserPlan("normal") // 🛡️ CHANGED
+    }
+  }, [])
 
-
+  // --- Send message ---
   const sendMessage = async () => {
     if (!input.trim()) return
+
+    // 🛡️ CHANGED: always use the *real* plan from localStorage (userPlan), not the UI dropdown
+    const planForRequest = userPlan
+
     const userMsg = { role: "user", text: input }
     setMessages((m) => [...m, userMsg])
 
@@ -32,7 +55,8 @@ export default function ChatOrchestratorPage() {
       const res = await fetch(`${API_BASE}/orchestrator/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg.text, plan }),
+        // 🛡️ CHANGED: enforce real plan in request body
+        body: JSON.stringify({ message: userMsg.text, plan: planForRequest }),
       })
       const data = await res.json()
       const botMsg = { role: "bot", text: data.chat, ui: data.ui, warnings: data.warnings }
@@ -45,13 +69,26 @@ export default function ChatOrchestratorPage() {
     }
   }
 
+  // 🛡️ CHANGED: when a normal user tries to pick "premium", block it & hint upgrade
+  const onPlanChange = (e) => {
+    const value = e.target.value
+    if (userPlan !== "premium" && value === "premium") {
+      // You can also router.push("/billing/upgrade?from=chat") here if you want redirect instead of alert.
+      alert("🚀 Premium features are locked. Please upgrade to Premium to use this mode.")
+      setPlan("normal")
+      return
+    }
+    setPlan(value)
+  }
+
   return (
+    // ✅ If you already wrap with <RequireAuth>, keep it. Otherwise, this block can remain as-is.
+    // <RequireAuth>
     <div className="flex flex-col flex-1 p-6 text-white">
-      {/* Header with health dots */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Chat with Orchestrator 🤖</h1>
-        
-      </div> 
+      </div>
 
       {/* Chat Card */}
       <div className="flex flex-col flex-1 bg-gradient-to-br from-blue-900/40 via-purple-900/30 to-gray-900/40 
@@ -60,7 +97,7 @@ export default function ChatOrchestratorPage() {
         <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-4">
           {messages.length === 0 && (
             <p className="text-center text-sm text-gray-300 mt-20">
-              Try: <span className="italic opacity-80">check if 'Summer2024!' is safe and suggest stronger</span>
+              Try: <span className="italic opacity-80">check if &apos;Summer2024!&apos; is safe and suggest stronger</span>
             </p>
           )}
 
@@ -87,7 +124,7 @@ export default function ChatOrchestratorPage() {
                   {msg.ui.breach && (
                     <div className="p-3 bg-black/30 border border-white/10 rounded-lg shadow">
                       <b>Breach:</b>{" "}
-                      {plan === "normal"
+                      {userPlan !== "premium" // 🛡️ CHANGED: gate by actual plan, not dropdown
                         ? "🔒 Breach check is premium only"
                         : msg.ui.breach.breached
                         ? `Found in ${msg.ui.breach.count} breaches`
@@ -123,16 +160,18 @@ export default function ChatOrchestratorPage() {
           ))}
         </div>
 
-        {/* Input Bar (inside card, rounded) */}
+        {/* Input Bar */}
         <div className="flex items-center gap-2 border-t border-white/10 pt-3">
+          {/* 🛡️ CHANGED: block selecting 'premium' if userPlan is normal */}
           <select
             value={plan}
-            onChange={(e) => setPlan(e.target.value)}
+            onChange={onPlanChange} // 🛡️ CHANGED
             className="rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white focus:ring-2 focus:ring-purple-500"
           >
             <option value="normal">Normal</option>
             <option value="premium">Premium</option>
           </select>
+
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -149,7 +188,16 @@ export default function ChatOrchestratorPage() {
             {loading ? "..." : "Send"}
           </button>
         </div>
+
+        {/* 🛡️ CHANGED: small hint under the bar if user is actually normal */}
+        {userPlan !== "premium" && (
+          <p className="text-xs text-yellow-300 mt-2">
+            You are on <b>Normal</b> plan. Premium mode is locked —{" "}
+            <a className="underline" href="/billing/upgrade?from=chat">upgrade to unlock</a>.
+          </p>
+        )}
       </div>
     </div>
+    // </RequireAuth>
   )
 }
