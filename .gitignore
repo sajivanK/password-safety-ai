@@ -24,3 +24,6 @@ out/
 # Build
 /build
 /dist
+
+backend/venv/
+**/__pycache__/
