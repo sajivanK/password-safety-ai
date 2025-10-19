@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Password Safety AI – Autofill",
+  "version": "0.1.0",
+  "permissions": ["storage", "activeTab", "scripting", "webNavigation"],
+  "host_permissions": ["http://*/", "https://*/"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html" },
+  "content_scripts": [
+    {
+      "matches": ["https://*/*", "http://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_origin_as_fallback": true
+    }
+  ]
+}

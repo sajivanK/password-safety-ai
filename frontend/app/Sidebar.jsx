@@ -12,6 +12,7 @@ import {
   MessageSquare,
   User as UserIcon,
   LogOut,
+  Lock,
 } from "lucide-react";
 
 import { validateSession, clearSession } from "@/utils/session"; // ✅ NEW
@@ -125,6 +126,7 @@ export default function Sidebar() {
           <SidebarLink href="/breach" label="Breach Check" Icon={ShieldAlert} />
         )}
         <SidebarLink href="/generator" label="Password Generator" Icon={KeyRound} />
+        <SidebarLink href="/vault" label="Password Manager" Icon={Lock} />
         <SidebarLink href="/chat" label="Chat Orchestrator" Icon={MessageSquare} />
         <SidebarLink href="/reports" label="Reports" Icon={BarChart3} />
         <SidebarLink href="/settings" label="Settings" Icon={Settings} />

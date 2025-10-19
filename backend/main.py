@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from agents import guardian, watchdog,generator,advisor,orchestrator
 
 from auth_routes import router as auth_router
-
+from vault_routes import router as vault_router
 
 # --- NEW: load .env and configure Gemini ---
 import os
@@ -50,5 +50,11 @@ app.include_router(generator.router,    prefix="/generator")
 app.include_router(orchestrator.router, prefix="/orchestrator")
 app.include_router(advisor.router,      prefix="/advisor")
 
+
+
 app.include_router(auth_router)
+
+#vault routes
+app.include_router(vault_router, prefix="/api/vault", tags=["vault"])
+
 
