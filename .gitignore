@@ -1,7 +1,7 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
+*.pyogit push origin main
 *.pyd
 *.pdb
 *.pyc

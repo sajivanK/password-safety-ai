@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Password Safety AI</title>
+    <style>
+      body { font-family: sans-serif; background:#121212; color:#eee; padding:12px; width:300px; }
+      input,button { width:100%; margin-top:6px; padding:6px; border-radius:6px; }
+      input { background:#222; color:white; border:1px solid #555; }
+      button { background:#6d28d9; color:white; border:none; font-weight:600; cursor:pointer; }
+      button:hover { background:#7c3aed; }
+      small { color:#aaa; }
+    </style>
+  </head>
+  <body>
+    <h2>🔐 Password Safety AI</h2>
+    <label>API Base (e.g., https://localhost:8000)</label>
+    <input id="apiBase" placeholder="https://your-api-url" />
+
+    <label>Bearer Token</label>
+    <input id="token" placeholder="JWT token" />
+
+    <label>Vault Passphrase</label>
+    <input id="passphrase" type="password" placeholder="Your vault passphrase" />
+
+    <button id="save">Save Settings</button>
+    <div id="msg"></div>
+    <small>Stored locally in Chrome sync storage</small>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

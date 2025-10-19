@@ -86,7 +86,9 @@ def generate_llm_passphrase(options: GeneratorInput) -> str:
         - PixelStorm*Vault3000
         """
 
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        #model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-flash-latest")
+
         response = model.generate_content(prompt)
 
         password = response.text.strip()
@@ -156,3 +158,6 @@ def create_password(options: GeneratorInput):
 
 # --------- Load Sinhala Words on Startup ---------
 load_sinhala_wordlist()
+
+
+
