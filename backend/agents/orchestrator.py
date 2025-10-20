@@ -75,11 +75,21 @@ async def call_guardian(password: str) -> Dict[str, Any]:
         return resp.json()
 
 async def call_watchdog(password: str) -> Dict[str, Any]:
+    headers = {
+        "Content-Type": "application/json",
+        # 🧩 local premium bypass
+        "Authorization": "Bearer testtoken"
+    }
     async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.post(f"{BACKEND_BASE}/watchdog/check-breach", json={"password": password})
+        resp = await client.post(
+            f"{BACKEND_BASE}/watchdog/check-breach",
+            json={"password": password},
+            headers=headers  # ✅ include auth
+        )
         if resp.status_code >= 400:
             raise HTTPException(resp.status_code, f"Watchdog error: {resp.text}")
         return resp.json()
+
 
 async def call_generator(mode: str = "deterministic",
                          length: int = 12,
@@ -100,53 +110,89 @@ async def call_generator(mode: str = "deterministic",
 
 # Compose final message
 
-def compose_reply(password: Optional[str],
-                  guardian: Optional[Dict[str,Any]],
-                  watchdog: Optional[Dict[str,Any]],
-                  generator: Optional[Dict[str,Any]],
-                  plan: Plan,
-                  degraded: list[str]) -> ChatOut:
+def compose_reply(password, guardian, watchdog, generator, plan, degraded):
+    lines = []
+    ui, warnings = {}, []
 
-    parts = []
-    ui: Dict[str,Any] = {}
-    warnings: list[str] = []
-
-    if degraded:
-        warnings.append("Some services were unavailable: " + ", ".join(degraded))
-
+    # ---------- Guardian ----------
     if guardian:
-        score = guardian.get("score") or guardian.get("data",{}).get("score")
-        reason = guardian.get("warning") or guardian.get("reasons") or guardian.get("data",{}).get("reasons")
-        ui["strength"] = {"score": score, "details": reason}
-        if password:
-            tag = "Strong ✅" if (score and score >= 3) else "Weak ⚠️"
-            parts.append(f"{tag} password analysis for {repr(password)}: score {score}/4.")
+        # normalize score
+        score = (
+            guardian.get("strength", {}).get("score")
+            or guardian.get("data", {}).get("score")
+            or guardian.get("score", 0)
+        ) or 0
 
-    if watchdog is not None:
-        breached = watchdog.get("breached") or watchdog.get("found")
-        count = watchdog.get("count") or watchdog.get("breach_count")
-        ui["breach"] = {"breached": bool(breached), "count": count}
-        if breached:
-            parts.append(f"🔎 Found in ~{count} known breaches.")
-        else:
-            parts.append("🟢 Not found in known breach datasets.")
+        # normalize feedback
+        feedback = (
+            guardian.get("strength", {}).get("feedback")
+            or guardian.get("data", {}).get("feedback", {})
+            or guardian.get("feedback", {})
+        )
+        warning_text = feedback.get("warning") or "None"
+        suggestions = feedback.get("suggestions", [])
 
-    if generator:
-        suggestion = generator.get("password") or generator.get("suggestions") or generator.get("passphrase")
-        if isinstance(suggestion, list):
-            sug_list = suggestion
+        ui["strength"] = {"score": score, "feedback": feedback}
+
+        tag = "Strong ✅" if score >= 3 else "Weak ⚠️"
+        lines.append(f"{tag} password analysis for '{password}':")
+        lines.append(f"• Score: {score}/4")
+        if warning_text != "None":
+            lines.append(f"• ⚠️ Warning: {warning_text}")
+        if suggestions:
+            lines.append(f"• 💡 Suggestions: {', '.join(suggestions[:2])}")
+
+    # ---------- Watchdog (Premium only) ----------
+    if plan == "premium":
+        if watchdog and isinstance(watchdog, dict):
+            # normalize structure
+            breached = watchdog.get("breached") or watchdog.get("data", {}).get("breached", False)
+            count = watchdog.get("count") or watchdog.get("data", {}).get("count", 0)
+            risk = watchdog.get("risk_level") or watchdog.get("data", {}).get("risk_level", "None")
+            recommendation = watchdog.get("recommendation") or watchdog.get("data", {}).get("recommendation", "")
+
+            ui["breach"] = {
+                "breached": breached,
+                "count": count,
+                "risk": risk,
+                "recommendation": recommendation
+            }
+
+            # ✅ Only add warning if watchdog actually failed or returned empty
+            if breached is None:
+                warnings.append("⚠️ Watchdog returned no data")
+            else:
+                if breached:
+                    lines.append(f"• 🔎 Found in {count} known breaches (Risk: {risk})")
+                else:
+                    lines.append("• 🟢 No breaches found.")
+                if recommendation:
+                    lines.append(f"• 💬 Recommendation: {recommendation}")
         else:
-            sug_list = [suggestion] if suggestion else []
-        ui["suggestions"] = sug_list
+            # ✅ Only warn if we confirmed it didn’t respond at all
+            if "watchdog" in degraded:
+                warnings.append("⚠️ Watchdog service not responding")
+
+
+    else:
+        warnings.append("🔒 Breach check is a Premium feature")
+
+    # ---------- Generator ----------
+    if plan == "premium" and generator:
+        sug = generator.get("password") or generator.get("suggestions") or generator.get("passphrase")
+        sug_list = [sug] if isinstance(sug, str) else (sug or [])
         if sug_list:
-            parts.append("💡 Suggestions: " + ", ".join(sug_list[:2]))
+            ui["suggestions"] = sug_list
+            lines.append("• 💡 Strong Password Suggestions:")
+            for s in sug_list[:2]:
+                lines.append(f"   - {s}")
 
-    # If premium-only features were requested but gated
-    if plan == "normal" and ("breach" not in ui or "suggestions" not in ui):
-        warnings.append("Some features are premium. Upgrade to unlock breach checks and smart suggestions.")
+    # ---------- Degraded warnings ----------
+    if degraded:
+        warnings.append(f"⚠️ Some services were unavailable: {', '.join(degraded)}")
 
-    chat = " ".join(parts) if parts else "I analyzed your request."
-    return ChatOut(chat=chat, ui=ui, warnings=warnings)
+    chat_text = "\n".join(lines) if lines else "I analyzed your request."
+    return ChatOut(chat=chat_text, ui=ui, warnings=warnings)
 
 # Orchestrator endpoint
 
@@ -164,6 +210,21 @@ async def orchestrator_chat(body: ChatIn) -> ChatOut:
     gen_mode = body.mode or ("llm" if body.plan in ("premium","enterprise") else "deterministic")
     gen_length = body.length or 14
     gen_symbols = True if body.symbols is None else body.symbols
+    
+    # 🧠 Auto-detect mode & language from user message
+    msg_lower = body.message.lower()
+
+    if "tamil" in msg_lower:
+        gen_mode = "multilingual"
+        body.language = "ta"
+    elif "sinhala" in msg_lower:
+        gen_mode = "multilingual"
+        body.language = "si"
+    elif "llm" in msg_lower or "creative" in msg_lower:
+        gen_mode = "llm"
+    else:
+        gen_mode = body.mode or ("llm" if body.plan in ("premium","enterprise") else "deterministic")
+
 
     # fan out calls
     degraded = []

@@ -3,10 +3,12 @@
 import RequireAuth from "@/components/RequireAuth";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { API_URL } from "@/utils/api"; // 🟡 NEW: use your API base
+import { API_URL } from "@/utils/api"; // 🟡 API base
 
 export default function DashboardPage() {
-  // plan badge (existing behavior)
+  // -------------------------------
+  // User plan detection
+  // -------------------------------
   const [plan, setPlan] = useState("normal");
   useEffect(() => {
     try {
@@ -17,50 +19,89 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Password Quick Check (as before)
+  // -------------------------------
+  // Password Quick Check
+  // -------------------------------
   const [password, setPassword] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // 🟡 NEW: Advisor tips state now supports note (coach_agent returns tips + note)
+  // Advisor (Coach)
   const [tips, setTips] = useState(null);
-  const [tipsNote, setTipsNote] = useState("");  // 🟡 NEW
+  const [tipsNote, setTipsNote] = useState("");
   const [tipsLoading, setTipsLoading] = useState(false);
   const [tipsError, setTipsError] = useState("");
 
-  // Analyze (unchanged)
-  async function analyzePassword() {
-    if (!password) return;
-    setLoading(true);
-    setResult(null);
-    // reset tips panel when re-analyzing
-    setTips(null);
-    setTipsNote("");       // 🟡 NEW
-    setTipsError("");
+  // -------------------------------
+// Analyze Password (Guardian + Watchdog)
+// -------------------------------
+async function analyzePassword() {
+  if (!password) return;
+  setLoading(true);
+  setResult(null);
+  setTips(null);
+  setTipsNote("");
+  setTipsError("");
 
-    try {
-      const res = await fetch(`${API_URL}/report/analyze-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      const data = await res.json();
-      setResult(data);
-    } catch (err) {
-      console.error("Error fetching backend:", err);
-      setResult({ error: "Failed to connect to backend ❌" });
-    } finally {
-      setLoading(false);
+  try {
+    const endpoint =
+      plan === "premium"
+        ? `${API_URL}/watchdog/analyze-password`     // ✅ combo route
+        : `${API_URL}/guardian/analyze-password`;    // normal
+
+    const headers = { "Content-Type": "application/json" };
+    if (plan === "premium") headers["Authorization"] = "Bearer testtoken"; // local bypass
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ password }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("Backend error:", data);
+      throw new Error(data.detail || "Backend error");
     }
-  }
 
-  // 🟡 NEW: Get Advisor tips from the NEW endpoint: /advisor/coach
+    // ✅ Normalize structure
+    const normalized = {
+      strength: {
+        score: data.strength?.score ?? data.score ?? 0,
+        feedback: {
+          warning:
+            data.strength?.feedback?.warning ??
+            data.feedback?.warning ??
+            "None",
+          suggestions:
+            data.strength?.feedback?.suggestions ??
+            data.feedback?.suggestions ??
+            [],
+        },
+      },
+      breach: data.breach || null,
+      safety_score: data.safety_score ?? 0,
+      note: data.note ?? "",
+    };
+
+    setResult(normalized);
+  } catch (err) {
+    console.error("Error fetching backend:", err);
+    setResult({ error: "Failed to connect to backend ❌" });
+  } finally {
+    setLoading(false);
+  }
+}
+
+  // -------------------------------
+  // Get Advisor Tips (Coach Agent)
+  // -------------------------------
   async function getAdvisorTips() {
     if (!password) return;
     setTipsLoading(true);
     setTipsError("");
     setTips(null);
-    setTipsNote(""); // 🟡 NEW
+    setTipsNote("");
 
     try {
       const res = await fetch(`${API_URL}/advisor/coach`, {
@@ -71,12 +112,11 @@ export default function DashboardPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Coach API commonly returns: { coach: { tips: [...], note: "..." } }
-        const coach = data.coach || data; // be tolerant to shape
+        const coach = data.coach || data;
         const list = coach.tips || data.tips || [];
         const note = coach.note || data.note || "";
         setTips(list);
-        setTipsNote(note); // 🟡 NEW
+        setTipsNote(note);
       } else {
         setTipsError(data.detail || "Something went wrong");
       }
@@ -87,6 +127,9 @@ export default function DashboardPage() {
     }
   }
 
+  // ===================================================
+  // UI Render
+  // ===================================================
   return (
     <RequireAuth>
       <main className="flex-1 p-8 text-white">
@@ -102,15 +145,15 @@ export default function DashboardPage() {
               Unlock breach checks and multilingual passwords with Premium.
             </p>
             <Link
-              href="/billing/upgrade"
+              href="/plans?from=dashboard"
               className="inline-block mt-3 bg-gradient-to-r from-yellow-500 to-orange-600 text-black px-4 py-2 rounded-lg font-semibold hover:opacity-90"
             >
-              Upgrade to Premium
+              Upgrade to Premium 🚀
             </Link>
           </div>
         )}
 
-        {/* Password Quick Check panel */}
+        {/* ================= Password Quick Check ================= */}
         <section className="mt-8">
           <div className="w-full max-w-3xl p-6 bg-gray-800/70 rounded-2xl shadow-lg backdrop-blur-sm">
             <h2 className="text-xl font-bold mb-4 text-blue-300">
@@ -152,14 +195,21 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Results */}
+          {/* ================= Results Display ================= */}
           {result && !result.error && (
             <div className="w-full max-w-5xl grid md:grid-cols-3 gap-6 mt-8">
               {/* Strength Card */}
-              <div className="p-6 bg-gray-800/70 rounded-2xl shadow-lg">
-                <h3 className="text-lg font-bold mb-3 text-blue-400">Strength</h3>
-                <p><b>Score:</b> {result.strength?.score} / 4</p>
-                <p><b>Warning:</b> {result.strength?.feedback?.warning || "None"}</p>
+              <div className="p-6 bg-gray-800/70 rounded-2xl shadow-lg space-y-2">
+                <h3 className="text-lg font-bold mb-3 text-blue-400">
+                  Strength
+                </h3>
+                <p>
+                  <b>Score:</b> {result.strength?.score} / 4
+                </p>
+                <p>
+                  <b>Warning:</b>{" "}
+                  {result.strength?.feedback?.warning || "None"}
+                </p>
                 <p>
                   <b>Suggestions:</b>{" "}
                   {result.strength?.feedback?.suggestions?.length > 0
@@ -168,35 +218,69 @@ export default function DashboardPage() {
                 </p>
               </div>
 
-              {/* Breach Card */}
-              <div className="p-6 bg-gray-800/70 rounded-2xl shadow-lg">
+              {/* Breach Card (Premium-only) */}
+              <div className="p-6 bg-gray-800/70 rounded-2xl shadow-lg space-y-2">
                 <h3 className="text-lg font-bold mb-3 text-red-400">Breach</h3>
-                <p>
-                  <b>Breached:</b>{" "}
-                  {result.breach?.breached ? "⚠️ Yes" : "✅ No"}
-                </p>
-                {result.breach?.breached && (
-                  <p><b>Times Found:</b> {result.breach.count}</p>
+
+                {plan === "premium" ? (
+                  <>
+                    <p>
+                      <b>Breached:</b>{" "}
+                      {result.breach?.breached ? "⚠️ Yes" : "✅ No"}
+                    </p>
+                    {result.breach?.breached && (
+                      <p>
+                        <b>Times Found:</b> {result.breach.count}
+                      </p>
+                    )}
+                    <p>
+                      <b>Risk Level:</b> {result.breach?.risk_level || "None"}
+                    </p>
+                    <p>
+                      <b>Recommendation:</b>{" "}
+                      {result.breach?.recommendation || "None"}
+                    </p>
+                  </>
+                ) : (
+                  <div className="text-gray-300">
+                    <p>
+                      Breach checks are a <b>Premium</b> feature 🔒.
+                    </p>
+                    <p className="mt-3 text-sm opacity-80">
+                      Upgrade to Premium to access breach reports and detailed
+                      remediation steps.
+                    </p>
+                    <div className="mt-4">
+                      <a
+                        href="/plans?from=dashboard"
+                        className="inline-block bg-gradient-to-r from-yellow-500 to-orange-600 text-black px-4 py-2 rounded font-semibold hover:opacity-90"
+                      >
+                        View Plans & Upgrade
+                      </a>
+                    </div>
+                  </div>
                 )}
-                <p><b>Risk Level:</b> {result.breach?.risk_level}</p>
-                <p><b>Recommendation:</b> {result.breach?.recommendation}</p>
               </div>
 
               {/* Safety Score Card */}
-              <div className="p-6 bg-gray-800/70 rounded-2xl shadow-lg">
-                <h3 className="text-lg font-bold mb-3 text-green-400">Safety Score</h3>
+              <div className="p-6 bg-gray-800/70 rounded-2xl shadow-lg space-y-2">
+                <h3 className="text-lg font-bold mb-3 text-green-400">
+                  Safety Score
+                </h3>
                 <div className="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
                   <div
                     className="h-4 bg-gradient-to-r from-green-400 to-green-600 transition-all"
                     style={{ width: `${result.safety_score ?? 0}%` }}
                   />
                 </div>
-                <p className="mt-2 font-semibold">{result.safety_score ?? 0} / 100</p>
+                <p className="mt-2 font-semibold">
+                  {result.safety_score ?? 0} / 100
+                </p>
               </div>
             </div>
           )}
 
-          {/* Advisor Tips (from new coach endpoint) */}
+          {/* ================= Advisor Tips ================= */}
           {tips && (
             <div className="w-full max-w-5xl mt-8">
               <div className="p-6 bg-gray-800/70 rounded-2xl shadow-lg">
@@ -212,8 +296,6 @@ export default function DashboardPage() {
                     ))}
                   </ul>
                 )}
-
-                {/* 🟡 NEW: optional footnote/note from coach */}
                 {tipsNote && (
                   <p className="text-xs text-gray-300 mt-3">{tipsNote}</p>
                 )}
