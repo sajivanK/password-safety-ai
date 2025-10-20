@@ -1,9 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from agents import guardian, watchdog,generator,advisor,orchestrator
+from agents import guardian, watchdog, generator, advisor, orchestrator
 
 from auth_routes import router as auth_router
 from vault_routes import router as vault_router
+
+# --- ✅ NEW: import for premium feature guard ---
+from premium_guard import require_premium_user
 
 # --- NEW: load .env and configure Gemini ---
 import os
@@ -44,6 +47,8 @@ app.add_middleware(
 def root():
     return {"message": "Password Safety Backend is running 🚀"}
 
+
+# Include all routers (same as before)
 app.include_router(guardian.router,     prefix="/guardian")
 app.include_router(watchdog.router,     prefix="/watchdog")  
 app.include_router(watchdog.router, prefix="/report",  tags=["Report (alias, deprecated)"])
@@ -51,11 +56,16 @@ app.include_router(generator.router,    prefix="/generator")
 app.include_router(orchestrator.router, prefix="/orchestrator")
 app.include_router(advisor.router,      prefix="/advisor")
 
-
-
 app.include_router(auth_router)
 
-#vault routes
+# Vault routes
 app.include_router(vault_router, prefix="/api/vault", tags=["vault"])
 
 
+# ✅ (Optional) Simple premium check endpoint for testing
+@app.get("/api/premium-test")
+def premium_check(user=Depends(require_premium_user)):
+    """
+    Quick check to verify premium middleware is working.
+    """
+    return {"message": "✅ You are a premium user"}

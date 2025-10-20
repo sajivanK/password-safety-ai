@@ -38,36 +38,38 @@ export default function ChatOrchestratorPage() {
 
   // --- Send message ---
   const sendMessage = async () => {
-    if (!input.trim()) return
+  if (!input.trim()) return
 
-    // 🛡️ CHANGED: always use the *real* plan from localStorage (userPlan), not the UI dropdown
-    const planForRequest = userPlan
-
-    const userMsg = { role: "user", text: input }
-    setMessages((m) => [...m, userMsg])
-
-    // Typing indicator
-    setMessages((m) => [...m, { role: "bot", text: "•••", typing: true }])
-    setInput("")
-    setLoading(true)
-
-    try {
-      const res = await fetch(`${API_BASE}/orchestrator/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // 🛡️ CHANGED: enforce real plan in request body
-        body: JSON.stringify({ message: userMsg.text, plan: planForRequest }),
-      })
-      const data = await res.json()
-      const botMsg = { role: "bot", text: data.chat, ui: data.ui, warnings: data.warnings }
-
-      setMessages((m) => [...m.filter((msg) => !msg.typing), botMsg]) // remove typing bubble
-    } catch (err) {
-      setMessages((m) => [...m.filter((msg) => !msg.typing), { role: "bot", text: "⚠️ Orchestrator not reachable." }])
-    } finally {
-      setLoading(false)
-    }
+  const planForRequest = userPlan
+  let mode = "deterministic"
+  if (planForRequest === "premium") {
+    if (input.toLowerCase().includes("llm")) mode = "llm"
+    else if (input.toLowerCase().includes("multi")) mode = "multilingual"
   }
+
+  const userMsg = { role: "user", text: input }
+  setMessages((m) => [...m, userMsg])
+  setMessages((m) => [...m, { role: "bot", text: "•••", typing: true }])
+  setInput("")
+  setLoading(true)
+
+  try {
+    const res = await fetch(`${API_BASE}/orchestrator/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: userMsg.text, plan: planForRequest, mode }),
+    })
+    const data = await res.json()
+    const botMsg = { role: "bot", text: data.chat, ui: data.ui, warnings: data.warnings }
+
+    setMessages((m) => [...m.filter((msg) => !msg.typing), botMsg])
+  } catch (err) {
+    setMessages((m) => [...m.filter((msg) => !msg.typing), { role: "bot", text: "⚠️ Orchestrator not reachable." }])
+  } finally {
+    setLoading(false)
+  }
+}
+
 
   // 🛡️ CHANGED: when a normal user tries to pick "premium", block it & hint upgrade
   const onPlanChange = (e) => {

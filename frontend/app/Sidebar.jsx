@@ -122,14 +122,14 @@ export default function Sidebar() {
       <nav className="flex flex-col gap-3">
         <SidebarLink href="/" label="Dashboard" Icon={LayoutDashboard} />
         <SidebarLink href="/auth/profile" label="User Profile" Icon={UserIcon} />
-        {plan === "premium" && (
+        {/*plan === "premium" && (
           <SidebarLink href="/breach" label="Breach Check" Icon={ShieldAlert} />
-        )}
+        )*/}
         <SidebarLink href="/generator" label="Password Generator" Icon={KeyRound} />
         <SidebarLink href="/vault" label="Password Manager" Icon={Lock} />
         <SidebarLink href="/chat" label="Chat Orchestrator" Icon={MessageSquare} />
-        <SidebarLink href="/reports" label="Reports" Icon={BarChart3} />
-        <SidebarLink href="/settings" label="Settings" Icon={Settings} />
+        {/*<SidebarLink href="/reports" label="Reports" Icon={BarChart3} />*/}
+        {/*<SidebarLink href="/settings" label="Settings" Icon={Settings} />*/}
       </nav>
 
       <button

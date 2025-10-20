@@ -98,37 +98,69 @@ def generate_llm_passphrase(options: GeneratorInput) -> str:
         raise HTTPException(status_code=500, detail=f"Gemini Error: {str(e)}")
 
 
-# --------- Multilingual Generator ---------
+# --------- Multilingual Generator (AI-generated, transliterated, plus English) ---------
 def generate_multilingual(language: str, length: int) -> str:
     try:
-        words = top_n_list(language, 10000)
+        model = genai.GenerativeModel("gemini-flash-latest")
 
-        # Sinhala: use custom loader if available, else Unicode fallback
-        if language == "si":
-            chosen_local = random_sinhala_word()
-        elif not words:
-            # For unsupported langs, fallback to random Unicode chars
-            chosen_local = "".join(chr(random.randint(0x0D80, 0x0DFF)) for _ in range(3))
-        else:
-            chosen_local = random.choice(words)
+        # Map language codes to names
+        lang_map = {
+            "ta": "Tamil",
+            "si": "Sinhala",
+            "fr": "French",
+            "ar": "Arabic",
+            "hi": "Hindi",
+            "es": "Spanish",
+            "zh": "Chinese"
+        }
+        lang_name = lang_map.get(language, language)
 
-        chosen_eng = random.choice(["Sky", "River", "Star", "Cloud", "Dream"])
-        chosen_symbol = random.choice("!@#$%^&*()")
-        chosen_number = str(random.randint(10, 9999))
+        # AI prompt: generate one local word + one English word
+        prompt = f"""
+        Generate ONE {lang_name} word transliterated into English letters.
+        Then select ONE meaningful English word.
+        Combine them with a symbol (#,@,$,%,*,!) and append a 2-4 digit number at the end.
+        Return ONLY the password, nothing else.
+        Example outputs:
+        - amma#Sky2025
+        - api@River4312
+        - pema$Star987
+        """
 
-        password = f"{chosen_local}{chosen_symbol}{chosen_eng}{chosen_number}"
+        response = model.generate_content(prompt)
+        password = response.text.strip()
 
-        # Ensure required length
+        # Ensure symbol exists
+        if not any(c in "!@#$%^&*()" for c in password):
+            symbol = random.choice("!@#$%^&*()")
+            password = f"{password}{symbol}"
+
+        # Ensure number exists
+        if not any(c.isdigit() for c in password):
+            number = str(random.randint(10, 9999))
+            password = f"{password}{number}"
+
+        # Ensure requested length
         while len(password) < length:
             password += random.choice(string.ascii_letters + string.digits)
 
         return password[:length]
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Multilingual Error: {str(e)}")
-
+        raise HTTPException(status_code=500, detail=f"Multilingual AI Error: {str(e)}")
 
 # --------- API Endpoint ---------
+# --------- Language code map ---------
+LANG_FULLNAME = {
+    "ta": "Tamil",
+    "si": "Sinhala",
+    "fr": "French",
+    "ar": "Arabic",
+    "hi": "Hindi",
+    "es": "Spanish",
+    "zh": "Chinese"
+}
+
 @router.post("/create-password")
 def create_password(options: GeneratorInput):
     try:
@@ -146,11 +178,14 @@ def create_password(options: GeneratorInput):
                 detail="Invalid mode. Use 'deterministic', 'llm', or 'multilingual'."
             )
 
+        # Map language code to full name if available
+        full_language_name = LANG_FULLNAME.get(options.language, options.language)
+
         return {
             "password": password,
             "length": len(password),
             "mode": options.mode,
-            "language": options.language
+            "language": full_language_name
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -327,3 +327,35 @@ def delete_account(body: DeleteAccountInput, current = Depends(get_current_user)
 
     return {"ok": True, "message": "Account deleted permanently ✅"}
 
+
+
+from datetime import datetime, timedelta
+
+@router.put("/upgrade-to-premium")
+def upgrade_to_premium(current = Depends(get_current_user)):
+    """
+    Mark the current user as premium for 30 days.
+    Automatically stores expiry date in MongoDB.
+    """
+    expiry_date = datetime.utcnow() + timedelta(days=30)
+
+    db.users.update_one(
+        {"_id": ObjectId(current["id"])},
+        {"$set": {"status": "premium", "premium_expires_at": expiry_date}}
+    )
+
+    user = db.users.find_one({"_id": ObjectId(current["id"])})
+
+    return {
+        "ok": True,
+        "message": f"Upgraded to Premium ✅ (valid until {expiry_date.strftime('%Y-%m-%d')})",
+        "profile": {
+            "id": str(user["_id"]),
+            "username": user["username"],
+            "status": user.get("status", "normal"),
+            "premium_expires_at": expiry_date.isoformat(),
+            "name": user.get("name"),
+            "email": user.get("email"),
+            "phone": user.get("phone"),
+        },
+    }

@@ -17,10 +17,10 @@ export default function BreachPage() {
       setPlan(p);
       if (p !== "premium") {
         // 👇 redirect normal users to billing page
-        router.replace("/billing/upgrade?from=breach");
+        router.replace("/plans?from=breach");
       }
     } catch {
-      router.replace("/billing/upgrade?from=breach");
+      router.replace("/plans?from=breach");
     }
   }, [router]);
 

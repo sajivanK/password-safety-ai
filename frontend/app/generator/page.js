@@ -110,10 +110,13 @@ export default function GeneratorPage() {
             onChange={(e) => {
               const value = e.target.value;
               // 🟡 if normal user picks "multilingual", send them to billing
+              
+
               if (value === "multilingual" && !premium) {
-                router.push("/billing/upgrade?from=generator");
+                router.push("/plans?from=generator");
                 return;
               }
+
               setOptions({ ...options, mode: value });
             }}
             className="p-2 rounded bg-gray-900 text-white border border-gray-700"
@@ -128,7 +131,7 @@ export default function GeneratorPage() {
         {!premium && (
           <div className="mb-6 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-200 text-sm">
             Multilingual mode is a <b>Premium</b> feature.{" "}
-            <Link href="/billing/upgrade" className="underline hover:opacity-80">
+            <Link href="/plans?from=generator" className="underline hover:opacity-80">
               Upgrade to Premium
             </Link>{" "}
             to unlock it.
