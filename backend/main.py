@@ -1,43 +1,31 @@
+# backend/main.py
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from agents import guardian, watchdog, generator, advisor, orchestrator
 
 from auth_routes import router as auth_router
 from vault_routes import router as vault_router
+from agents.new_advisor import story_agent   # 🆕 mount /story
 
-# --- ✅ NEW: import for premium feature guard ---
-from premium_guard import require_premium_user
-
-# --- NEW: load .env and configure Gemini ---
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
-
 from database import db
+from premium_guard import require_premium_user
 
-
-# Load environment variables from .env file
 load_dotenv()
-
 API_KEY = os.getenv("GOOGLE_API_KEY")
 if not API_KEY:
     raise RuntimeError("❌ GOOGLE_API_KEY not set in environment or .env file")
-
-# Configure Gemini once here
 genai.configure(api_key=API_KEY)
-print("✅ Gemini configured successfully")
-
+print("✅ Gemini configured in main.py")
 
 app = FastAPI()
 
-# Allow frontend (Next.js) to access backend
+# 🆕 CORS relaxed for dev to avoid “waiting” issues
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://192.168.56.1:3000",
-    ],
+    allow_origins=["*"],           # DEV: allow all. (Harden for prod)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,25 +35,20 @@ app.add_middleware(
 def root():
     return {"message": "Password Safety Backend is running 🚀"}
 
-
-# Include all routers (same as before)
+# Existing routers
 app.include_router(guardian.router,     prefix="/guardian")
-app.include_router(watchdog.router,     prefix="/watchdog")  
-app.include_router(watchdog.router, prefix="/report",  tags=["Report (alias, deprecated)"])
+app.include_router(watchdog.router,     prefix="/watchdog")
 app.include_router(generator.router,    prefix="/generator")
 app.include_router(orchestrator.router, prefix="/orchestrator")
 app.include_router(advisor.router,      prefix="/advisor")
 
-app.include_router(auth_router)
+# 🆕 story endpoints
+app.include_router(story_agent.router,  prefix="/story", tags=["story"])
 
-# Vault routes
+# Auth + Vault
+app.include_router(auth_router)
 app.include_router(vault_router, prefix="/api/vault", tags=["vault"])
 
-
-# ✅ (Optional) Simple premium check endpoint for testing
 @app.get("/api/premium-test")
 def premium_check(user=Depends(require_premium_user)):
-    """
-    Quick check to verify premium middleware is working.
-    """
     return {"message": "✅ You are a premium user"}

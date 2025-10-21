@@ -1,79 +1,173 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_URL } from "@/utils/api";
-import { useRouter } from "next/navigation";
+import Link from "next/link"; // 🆕 back button
+
+const BURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 
 export default function EditProfilePage() {
-  const router = useRouter();
-  const [form, setForm] = useState({ name: "", email: "", phone: "", status: "normal" });
-  const [err, setErr] = useState("");
-  const [msg, setMsg] = useState("");
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    username: "", // 🆕 editable username
+  });
 
-  const onChange = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState(null);
 
-  async function loadProfile() {
-    setErr("");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const t = localStorage.getItem("psai_token");
+      setToken(t);
+      fetchProfile(t);
+    }
+  }, []);
+
+  async function fetchProfile(t) {
+    if (!t) return;
     try {
-      const token = localStorage.getItem("psai_token");
-      if (!token) return router.push("/auth/login");
-      const res = await fetch(`${API_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      if (!res.ok) return setErr(data.detail || "Failed to load");
-      const u = data.user || {};
-      setForm({
-        name: u.name || "",
-        email: u.email || "",
-        phone: u.phone || "",
-        status: u.status || "normal",
+      const res = await fetch(`${BURL}/auth/me`, {
+        headers: { Authorization: `Bearer ${t}` },
       });
-    } catch { setErr("Backend not reachable"); }
+      const data = await res.json();
+      if (data.ok && data.user) {
+        const u = data.user;
+        setForm({
+          name: u.name || "",
+          email: u.email || "",
+          phone: u.phone || "",
+          username: u.username || "", // 🆕 prefill username
+        });
+      }
+    } catch (err) {
+      console.error("Profile fetch failed", err);
+    }
   }
 
-  useEffect(() => { loadProfile(); /* eslint-disable-next-line */ }, []);
+  const onChange = (e) => {
+    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+  };
 
-  async function submit(e) {
+  async function handleSave(e) {
     e.preventDefault();
-    setErr(""); setMsg("");
+    if (!token) {
+      setMessage("❌ Not logged in.");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
     try {
-      const token = localStorage.getItem("psai_token");
-      if (!token) return router.push("/auth/login");
-      const res = await fetch(`${API_URL}/auth/profile`, {
+      const res = await fetch(`${BURL}/auth/edit-profile`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(form),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(form), // includes username 🆕
       });
       const data = await res.json();
-      if (!res.ok) return setErr(data.detail || "Update failed");
-      setMsg("✅ Profile updated");
-      setTimeout(() => router.push("/auth/profile"), 800);
-    } catch { setErr("Backend not reachable"); }
+      if (!res.ok) throw new Error(data.detail || data.message || "Update failed");
+
+      setMessage("✅ Profile updated successfully! Redirecting…");
+
+      // 🆕 keep a friendly pause then go to profile page
+      setTimeout(() => {
+        window.location.replace("/auth/profile");
+      }, 1000);
+    } catch (err) {
+      setMessage(`❌ ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="max-w-xl mx-auto p-6 bg-gray-800/70 rounded-2xl shadow-lg mt-10 text-white">
-      <h1 className="text-3xl font-bold text-blue-400 mb-4">Edit profile</h1>
-      {err && <p className="text-red-400 mb-2">{err}</p>}
-      <form onSubmit={submit} className="space-y-3">
-        <input className="w-full p-3 rounded bg-gray-900 border border-gray-700" placeholder="Full name"
-               value={form.name} onChange={onChange("name")} />
-        <input className="w-full p-3 rounded bg-gray-900 border border-gray-700" placeholder="Email" type="email"
-               value={form.email} onChange={onChange("email")} />
-        <input className="w-full p-3 rounded bg-gray-900 border border-gray-700" placeholder="Phone"
-               value={form.phone} onChange={onChange("phone")} />
-        <div className="flex items-center gap-3">
-          <label>Status</label>
-          <select value={form.status} onChange={onChange("status")}
-                  className="p-2 rounded bg-gray-900 border border-gray-700">
-            <option value="normal">Normal</option>
-            <option value="premium">Premium</option>
-          </select>
-          <button type="submit"
-                  className="ml-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 text-white px-6 py-2 rounded-lg font-semibold">
-            Save
+    <div className="max-w-md mx-auto p-6 text-white space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Edit Profile</h1>
+        {/* 🆕 Back button */}
+        <Link
+          href="/auth/profile"
+          className="text-sm bg-gray-800 hover:bg-gray-700 border border-gray-600 px-3 py-1 rounded-md transition-all"
+        >
+          ← Back to Profile
+        </Link>
+      </div>
+
+      {message && (
+        <div className="p-3 rounded bg-gray-800/50 border border-gray-700 text-center">
+          {message}
+        </div>
+      )}
+
+      <form onSubmit={handleSave} className="space-y-4">
+        {/* Full Name */}
+        <div>
+          <label className="block mb-1 text-sm opacity-80">Full Name</label>
+          <input
+            className="w-full p-2 rounded bg-gray-900 border border-gray-700"
+            name="name"
+            placeholder="Enter full name"
+            value={form.name}
+            onChange={onChange}
+            required
+          />
+        </div>
+
+        {/* Email */}
+        <div>
+          <label className="block mb-1 text-sm opacity-80">Email</label>
+        <input
+            className="w-full p-2 rounded bg-gray-900 border border-gray-700"
+            name="email"
+            type="email"
+            placeholder="Enter email"
+            value={form.email}
+            onChange={onChange}
+            required
+          />
+        </div>
+
+        {/* Phone */}
+        <div>
+          <label className="block mb-1 text-sm opacity-80">Phone</label>
+          <input
+            className="w-full p-2 rounded bg-gray-900 border border-gray-700"
+            name="phone"
+            placeholder="Enter phone number"
+            value={form.phone}
+            onChange={onChange}
+          />
+        </div>
+
+        {/* 🆕 Username (unique) */}
+        <div>
+          <label className="block mb-1 text-sm opacity-80">Username</label>
+          <input
+            className="w-full p-2 rounded bg-gray-900 border border-gray-700"
+            name="username"
+            placeholder="Choose a unique username"
+            value={form.username}
+            onChange={onChange}
+            required
+          />
+          <p className="text-xs opacity-70 mt-1">
+            Your username must be unique. If it’s already taken, you’ll see an error.
+          </p>
+        </div>
+
+        {/* Centered Save button */}
+        <div className="flex justify-center pt-4">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 font-semibold"
+          >
+            {loading ? "Saving..." : "Save Changes"}
           </button>
         </div>
-        {msg && <p className="text-green-400">{msg}</p>}
       </form>
     </div>
   );

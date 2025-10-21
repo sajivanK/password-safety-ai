@@ -195,7 +195,7 @@ export default function ChatOrchestratorPage() {
         {userPlan !== "premium" && (
           <p className="text-xs text-yellow-300 mt-2">
             You are on <b>Normal</b> plan. Premium mode is locked —{" "}
-            <a className="underline" href="/billing/upgrade?from=chat">upgrade to unlock</a>.
+            <a className="underline" href="/plans?from=chat">upgrade to unlock</a>.
           </p>
         )}
       </div>

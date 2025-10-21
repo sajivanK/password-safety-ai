@@ -38,11 +38,18 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 🆕 Updated logout — same fix as Sidebar
   function logout() {
-    localStorage.removeItem("psai_token");
-    localStorage.removeItem("psai_status");
-    localStorage.removeItem("psai_username");
-    router.push("/auth/login");
+    try {
+      localStorage.removeItem("psai_token");
+      localStorage.removeItem("psai_status");
+      localStorage.removeItem("psai_username");
+      // Broadcast to all tabs & listeners so RequireAuth/Sidebar react
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new CustomEvent("psai:auth-changed", { detail: "logged-out" }));
+    } catch {}
+    // 🛑 Hard redirect to fully reset mounted components
+    window.location.replace("/auth/login");
   }
 
   // 🆕 call backend to upgrade
@@ -63,7 +70,7 @@ export default function ProfilePage() {
       setMsg("✅ Upgraded to Premium");
       // refresh UI + localStorage
       localStorage.setItem("psai_status", "premium");
-+     window.dispatchEvent(new CustomEvent("psai:plan-changed", { detail: "premium" })); // 🔔 notify others
+      window.dispatchEvent(new CustomEvent("psai:plan-changed", { detail: "premium" })); // 🔔 notify others
       await loadProfile();
     } catch (e) {
       setErr("Backend not reachable");
@@ -88,16 +95,6 @@ export default function ProfilePage() {
           <p><b>Status:</b> {profile.status}</p>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            {/* Upgrade button shows only if not premium */}
-            {profile.status !== "premium" && (
-              <button
-                onClick={upgrade}
-                className="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded"
-              >
-                Upgrade to Premium
-              </button>
-            )}
-
             <button
               onClick={() => router.push("/auth/change-password")}
               className="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded"
