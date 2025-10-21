@@ -100,7 +100,15 @@ export default function Sidebar() {
 
   function signOut() {
     clearSession(); // clears LS + broadcasts
-    router.replace("/auth/login");
+
+    // 🛑 Use a HARD redirect so mounted components stop calling /auth/me in loops.
+    // Also flip local flags immediately to prevent any further renders in this session tick.
+    setAuthed(false);
+    setMounted(false);
+    window.location.replace("/auth/login");
+
+    // (Soft routing like router.replace can leave useEffect hooks active briefly, causing repeated /auth/me)
+    // router.replace("/auth/login"); // ❌ avoid
   }
 
   return (

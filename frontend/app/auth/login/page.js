@@ -1,93 +1,127 @@
 "use client";
 
-import { useState, useEffect } from "react"; // ⬅️ added useEffect
-import { API_URL } from "@/utils/api";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+// Use your existing API base env
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [form, setForm] = useState({ username: "", password: "" });
-  const [err, setErr] = useState("");
-  const [msg, setMsg] = useState("");
-
-  // ⬇️ render only after client mounts to avoid SSR/extension hydration mismatch
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-
-  const onChange = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const [identifier, setIdentifier] = useState(""); // username OR email
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
   async function handleLogin(e) {
     e.preventDefault();
-    setErr("");
-    setMsg("");
+    setLoading(true);
+    setMessage("");
 
     try {
+      // OAuth2 password flow expects x-www-form-urlencoded
       const body = new URLSearchParams();
-      body.append("username", form.username);
-      body.append("password", form.password);
+      body.append("username", identifier);
+      body.append("password", password);
+      body.append("grant_type", "password");
 
-      const res = await fetch(`${API_URL}/auth/login`, {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
+        body: body.toString(),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        setErr(data.detail || "Login failed");
-        return;
+        throw new Error(data.detail || data.message || "Login failed");
       }
 
-      // Save token + basic info
-      localStorage.setItem("psai_token", data.access_token);
-      localStorage.setItem("psai_status", data.status || "normal");
-      localStorage.setItem("psai_username", data.username || "");
+      // 🔑 Store under the keys your guard expects
+      try {
+        localStorage.setItem("psai_token", data.access_token);             // ✅ REQUIRED by RequireAuth
+        localStorage.setItem("psai_status", data.status || "normal");      // optional, used by dashboard
+        localStorage.setItem("psai_username", data.username || "");        // optional
 
-      setMsg("✅ Logged in");
-      router.push("/dashboard");
-    } catch (e) {
-      setErr("Failed to reach backend");
+        // 🔔 Let other tabs/components react immediately
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new CustomEvent("psai:auth-changed", { detail: "logged-in" }));
+      } catch {}
+
+      setMessage("✅ Logged in successfully.");
+      // Navigate after storage is done so RequireAuth can see the token
+      window.location.replace("/dashboard");
+    } catch (err) {
+      setMessage(`❌ ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Optional helper: show saved story for the typed identifier
+  async function handleLatestStory() {
+    const id = identifier.trim();
+    if (!id) {
+      setMessage("ℹ️ Type your username or email first.");
+      return;
+    }
+    try {
+      const qs = id.includes("@")
+        ? `email=${encodeURIComponent(id)}`
+        : `username=${encodeURIComponent(id)}`;
+      const r = await fetch(`${API_BASE}/story/latest?${qs}`);
+      const j = await r.json();
+      if (j?.story) {
+        alert(j.story); // simple viewer; you can swap for a nicer modal
+      } else {
+        alert("No saved story for this user yet.");
+      }
+    } catch {
+      alert("Could not fetch a story right now.");
     }
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-gray-800/70 rounded-2xl shadow-lg mt-10 text-white">
-      <h1 className="text-3xl font-bold text-purple-400 mb-4">Login</h1>
+    <div className="max-w-md mx-auto p-6 space-y-4">
+      <h1 className="text-2xl font-semibold">Login</h1>
+
+      {message && <div className="p-3 rounded bg-gray-800/50">{message}</div>}
 
       <form onSubmit={handleLogin} className="space-y-3">
         <input
-          className="w-full p-3 rounded bg-gray-900 border border-gray-700"
-          placeholder="Username"
-          value={form.username}
-          onChange={onChange("username")}
-          autoComplete="username"        // ⬅️ hint for password managers
-        />
-        <input
-          className="w-full p-3 rounded bg-gray-900 border border-gray-700"
-          placeholder="Password"
-          type="password"
-          value={form.password}
-          onChange={onChange("password")}
-          autoComplete="current-password" // ⬅️ hint for password managers
+          className="w-full p-2 rounded bg-gray-900 border border-gray-700"
+          placeholder="Username or Email"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          autoComplete="username"
         />
 
-        {msg && <p className="text-green-400">{msg}</p>}
-        {err && <p className="text-red-400">{err}</p>}
+        <div className="space-y-1">
+          <input
+            className="w-full p-2 rounded bg-gray-900 border border-gray-700"
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+          <div className="flex items-center justify-between text-sm">
+            <button
+              type="button"
+              onClick={handleLatestStory}
+              className="underline opacity-80 hover:opacity-100"
+            >
+              Do you want to remember the password?
+            </button>
+            <a href="/auth/register" className="opacity-80 hover:opacity-100">
+              Register
+            </a>
+          </div>
+        </div>
 
         <button
-          type="submit"
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white px-6 py-3 rounded-lg font-semibold"
+          disabled={loading}
+          className="w-full p-2 rounded bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
         >
-          Sign in
+          {loading ? "Logging in..." : "Login"}
         </button>
-
-        <p className="mt-3 text-sm text-gray-300">
-          Don’t have an account?{" "}
-          <a href="/auth/register" className="text-blue-400 hover:underline">
-            Register a new user
-          </a>
-        </p>
       </form>
     </div>
   );

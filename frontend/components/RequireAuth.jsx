@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { validateSession, clearSession } from "@/utils/session";
 
@@ -8,36 +8,62 @@ export default function RequireAuth({ children }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // ⛔ Block rendering until we verify the token with backend
+  // 🆕 Render optimistically as soon as a token exists.
   const [ready, setReady] = useState(false);
+  const redirected = useRef(false); // prevent double redirects in fast nav
 
   useEffect(() => {
     let mounted = true;
 
+    // 🆕 optimistic gate: if token exists, render immediately (no waiting)
+    const token = typeof window !== "undefined" ? localStorage.getItem("psai_token") : null;
+    if (!token) {
+      redirected.current = true;
+      router.replace("/auth/login");
+      setReady(false);
+      return;
+    }
+    setReady(true); // ✅ show UI right away
+
+    // Background verification (non-blocking)
     async function check() {
       const res = await validateSession();
       if (!mounted) return;
 
       if (!res.ok) {
-        // Invalid/expired → clear & kick to login
+        // invalid/expired → clear & redirect
         clearSession();
-        router.replace("/auth/login");
-        setReady(false);
+        if (!redirected.current) {
+          redirected.current = true;
+          router.replace("/auth/login");
+        }
         return;
       }
 
-      // Valid → ensure local status is synced
+      // valid → sync status locally (if provided)
       try {
-        localStorage.setItem("psai_status", res.status || "normal");
+        if (res.status) localStorage.setItem("psai_status", res.status);
       } catch {}
-      setReady(true);
     }
 
     check();
 
-    // Re-validate whenever route changes (prevents sidebar showing on /auth)
-    // and when other tabs log out.
-    const onStorage = () => check();
+    // Re-validate on tab auth changes & route changes,
+    // but do NOT block rendering anymore.
+    const onStorage = () => {
+      // if someone removed the token in another tab, bail out
+      const t = localStorage.getItem("psai_token");
+      if (!t) {
+        clearSession();
+        if (!redirected.current) {
+          redirected.current = true;
+          router.replace("/auth/login");
+        }
+        return;
+      }
+      // otherwise just background-check
+      check();
+    };
     const onAuthChanged = () => check();
 
     window.addEventListener("storage", onStorage);
@@ -50,6 +76,8 @@ export default function RequireAuth({ children }) {
     };
   }, [router, pathname]);
 
-  if (!ready) return null; // nothing until we know the token is valid
+  if (!ready && redirected.current) return null; // avoid flash after redirect
+  if (!ready) return null; // initial tokenless case
+
   return children;
 }

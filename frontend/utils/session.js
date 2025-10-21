@@ -4,7 +4,7 @@ import { API_URL } from "@/utils/api";
 /**
  * Ping backend to validate token.
  * Returns { ok: true, user, status } if valid, else { ok: false }.
- * Backend endpoint can be /auth/me (or any token-check endpoint that returns 200 when valid).
+ * Backend endpoint is /auth/me (returns { ok: True, user: {...} } in your API).
  */
 export async function validateSession() {
   try {
@@ -21,9 +21,16 @@ export async function validateSession() {
     }
 
     const data = await res.json();
-    // Normalize status if provided by backend
-    const status = data.status || localStorage.getItem("psai_status") || "normal";
-    return { ok: true, user: data, status };
+    // 🆕 map your backend shape -> friendly return
+    // your /auth/me returns: { ok: True, user: { ..., status } }
+    const user = data.user || data; // fallback just in case
+    const statusFromApi =
+      (user && (user.status || user?.user?.status)) ||
+      data.status ||
+      null;
+
+    const status = statusFromApi || localStorage.getItem("psai_status") || "normal";
+    return { ok: true, user, status };
   } catch {
     return { ok: false };
   }

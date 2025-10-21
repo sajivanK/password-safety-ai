@@ -33,65 +33,69 @@ export default function DashboardPage() {
   const [tipsError, setTipsError] = useState("");
 
   // -------------------------------
-// Analyze Password (Guardian + Watchdog)
-// -------------------------------
-async function analyzePassword() {
-  if (!password) return;
-  setLoading(true);
-  setResult(null);
-  setTips(null);
-  setTipsNote("");
-  setTipsError("");
+  // Analyze Password (Guardian + Watchdog)
+  // -------------------------------
+  async function analyzePassword() {
+    if (!password) return;
+    setLoading(true);
+    setResult(null);
+    setTips(null);
+    setTipsNote("");
+    setTipsError("");
 
-  try {
-    const endpoint =
-      plan === "premium"
-        ? `${API_URL}/watchdog/analyze-password`     // ✅ combo route
-        : `${API_URL}/guardian/analyze-password`;    // normal
+    try {
+      const endpoint =
+        plan === "premium"
+          ? `${API_URL}/watchdog/analyze-password` // ✅ combo route
+          : `${API_URL}/guardian/analyze-password`; // normal
 
-    const headers = { "Content-Type": "application/json" };
-    if (plan === "premium") headers["Authorization"] = "Bearer testtoken"; // local bypass
+      const headers = { "Content-Type": "application/json" };
+      // ⚠️ If watchdog requires auth for premium, attach token:
+      if (plan === "premium") {
+        const t = localStorage.getItem("psai_token");
+        if (t) headers["Authorization"] = `Bearer ${t}`; // 🆕 attach real token if present
+      }
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ password }),
-    });
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ password }),
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      console.error("Backend error:", data);
-      throw new Error(data.detail || "Backend error");
-    }
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("Backend error:", data);
+        throw new Error(data.detail || "Backend error");
+      }
 
-    // ✅ Normalize structure
-    const normalized = {
-      strength: {
-        score: data.strength?.score ?? data.score ?? 0,
-        feedback: {
-          warning:
-            data.strength?.feedback?.warning ??
-            data.feedback?.warning ??
-            "None",
-          suggestions:
-            data.strength?.feedback?.suggestions ??
-            data.feedback?.suggestions ??
-            [],
+      // ✅ Normalize structure
+      const normalized = {
+        strength: {
+          score: data.strength?.score ?? data.score ?? 0,
+          feedback: {
+            warning:
+              data.strength?.feedback?.warning ??
+              data.feedback?.warning ??
+              "None",
+            suggestions:
+              data.strength?.feedback?.suggestions ??
+              data.feedback?.suggestions ??
+              [],
+          },
         },
-      },
-      breach: data.breach || null,
-      safety_score: data.safety_score ?? 0,
-      note: data.note ?? "",
-    };
+        breach: data.breach || null,
+        safety_score: data.safety_score ?? 0,
+        note: data.note ?? "",
+      };
 
-    setResult(normalized);
-  } catch (err) {
-    console.error("Error fetching backend:", err);
-    setResult({ error: "Failed to connect to backend ❌" });
-  } finally {
-    setLoading(false);
+      setResult(normalized);
+    } catch (err) {
+      console.error("Error fetching backend:", err);
+      setResult({ error: "Failed to connect to backend ❌" });
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
   // -------------------------------
   // Get Advisor Tips (Coach Agent)
@@ -219,7 +223,7 @@ async function analyzePassword() {
               </div>
 
               {/* Breach Card (Premium-only) */}
-              <div className="p-6 bg-gray-800/70 rounded-2xl shadow-lg space-y-2">
+              <div className="p-6 bg-gray_800/70 rounded-2xl shadow-lg space-y-2">
                 <h3 className="text-lg font-bold mb-3 text-red-400">Breach</h3>
 
                 {plan === "premium" ? (
